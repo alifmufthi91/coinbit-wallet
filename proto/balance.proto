@@ -1,0 +1,13 @@
+syntax = "proto3";
+package coinbit;
+
+option go_package = "generated/model";
+
+message Balance {
+    string wallet_id = 1;
+    float balance = 2;
+}
+
+message BalanceMap {
+    map<string, Balance> items = 1;
+}
