@@ -11,31 +11,29 @@ import (
 )
 
 var (
-	balanceProcessor *goka.Processor
+	BalanceGroup goka.Group = "balance"
+	BalanceTable goka.Table = goka.GroupTable(BalanceGroup)
 )
 
-func RunBalanceProcessor() {
-	logger.Info("Running balance processor..")
-	var err error
-	brokers := config.GetEnv().KafkaBrokers
-	balanceGroup := goka.DefineGroup(config.BalanceGroup,
-		goka.Input(config.TopicDeposit, new(util.DepositCodec), processBalance),
-		goka.Persist(new(util.BalanceMapCodec)),
-	)
-	balanceProcessor, err = goka.NewProcessor(brokers,
-		balanceGroup,
-		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
-		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
-	)
-	if err != nil {
-		logger.Error("error creating processor: %v", err)
-		panic(err)
-	}
+func RunBalanceProcessor(ctx context.Context, brokers []string) func() error {
+	return func() error {
+		logger.Info("Running balance processor..")
 
-	err = balanceProcessor.Run(context.Background())
-	if err != nil {
-		logger.Error("error running processor: %v", err)
-		panic(err)
+		balanceGroup := goka.DefineGroup(BalanceGroup,
+			goka.Input(config.TopicDeposit, new(util.DepositCodec), processBalance),
+			goka.Persist(new(util.BalanceMapCodec)),
+		)
+		balanceProcessor, err := goka.NewProcessor(brokers,
+			balanceGroup,
+			goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
+			goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
+		)
+		if err != nil {
+			logger.Error("error creating processor: %v", err)
+			panic(err)
+		}
+
+		return balanceProcessor.Run(ctx)
 	}
 }
 

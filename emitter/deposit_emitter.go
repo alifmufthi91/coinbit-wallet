@@ -13,10 +13,10 @@ var (
 	depositEmitter *goka.Emitter
 )
 
-func RunDepositEmitter() {
+func RunDepositEmitter(brokers []string, stream goka.Stream) {
 	logger.Info("Running deposit emitter..")
 	var err error
-	depositEmitter, err = goka.NewEmitter(config.Brokers, config.TopicDeposit, new(util.DepositCodec))
+	depositEmitter, err = goka.NewEmitter(brokers, stream, new(util.DepositCodec))
 	if err != nil {
 		logger.Error("error creating emitter: %v", err)
 		panic(err)

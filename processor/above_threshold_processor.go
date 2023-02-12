@@ -11,31 +11,29 @@ import (
 )
 
 var (
-	aboveThresholdProcessor *goka.Processor
+	AboveThresholdGroup goka.Group = "aboveThreshold"
+	AboveThresholdTable goka.Table = goka.GroupTable(AboveThresholdGroup)
 )
 
-func RunAboveThresholdProcessor() {
-	logger.Info("Running above threshold processor..")
-	var err error
-	brokers := config.GetEnv().KafkaBrokers
-	aboveThresholdGroup := goka.DefineGroup(config.AboveThresholdGroup,
-		goka.Input(config.TopicDeposit, new(util.DepositCodec), processAboveThreshold),
-		goka.Persist(new(util.AboveThresholdMapCodec)),
-	)
-	aboveThresholdProcessor, err = goka.NewProcessor(brokers,
-		aboveThresholdGroup,
-		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
-		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
-	)
-	if err != nil {
-		logger.Error("error creating processor: %v", err)
-		panic(err)
-	}
+func RunAboveThresholdProcessor(ctx context.Context, brokers []string) func() error {
+	return func() error {
+		logger.Info("Running above threshold processor..")
 
-	err = aboveThresholdProcessor.Run(context.Background())
-	if err != nil {
-		logger.Error("error running processor: %v", err)
-		panic(err)
+		aboveThresholdGroup := goka.DefineGroup(AboveThresholdGroup,
+			goka.Input(config.TopicDeposit, new(util.DepositCodec), processAboveThreshold),
+			goka.Persist(new(util.AboveThresholdMapCodec)),
+		)
+		aboveThresholdProcessor, err := goka.NewProcessor(brokers,
+			aboveThresholdGroup,
+			goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
+			goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
+		)
+		if err != nil {
+			logger.Error("error creating processor: %v", err)
+			panic(err)
+		}
+
+		return aboveThresholdProcessor.Run(ctx)
 	}
 }
 

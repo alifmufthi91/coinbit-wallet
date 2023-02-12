@@ -2,7 +2,7 @@ package view
 
 import (
 	"coinbit-wallet/config"
-	"coinbit-wallet/generated/model"
+	"coinbit-wallet/processor"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
@@ -10,35 +10,21 @@ import (
 	"github.com/lovoo/goka"
 )
 
-var (
-	AboveThresholdView *goka.View
-)
-
-func RunAboveThresholdView() {
-	logger.Info("Running Above Threshold View..")
-	var err error
-	AboveThresholdView, err = goka.NewView(
+func CreateAboveThresholdView(brokers []string) *goka.View {
+	aboveThresholdView, err := goka.NewView(
 		config.Brokers,
-		config.AboveThresholdTable,
+		processor.AboveThresholdTable,
 		new(util.AboveThresholdMapCodec),
 	)
 	if err != nil {
 		panic(err)
 	}
-	err = AboveThresholdView.Run(context.Background())
-	if err != nil {
-		logger.Error("error running view: %v", err)
-		panic(err)
-	}
+	return aboveThresholdView
 }
 
-func GetAboveThresholdView() *model.AboveThresholdMap {
-	val, err := AboveThresholdView.Get(string(config.TopicDeposit))
-	if err != nil {
-		panic(err)
+func RunAboveThresholdView(view *goka.View, ctx context.Context) func() error {
+	return func() error {
+		logger.Info("Running Above Threshold View..")
+		return view.Run(ctx)
 	}
-	if val == nil {
-		panic("view is not found")
-	}
-	return val.(*model.AboveThresholdMap)
 }

@@ -8,13 +8,9 @@ import (
 )
 
 var (
-	Brokers             []string
-	TopicDeposit        goka.Stream = "deposits"
-	BalanceGroup        goka.Group  = "balance"
-	AboveThresholdGroup goka.Group  = "aboveThreshold"
-	BalanceTable        goka.Table  = goka.GroupTable(BalanceGroup)
-	AboveThresholdTable goka.Table  = goka.GroupTable(AboveThresholdGroup)
-	TMC                 *goka.TopicManagerConfig
+	Brokers      []string
+	TopicDeposit goka.Stream = "deposits"
+	TMC          *goka.TopicManagerConfig
 )
 
 func InitGoka() {

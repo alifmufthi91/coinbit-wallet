@@ -5,9 +5,10 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/lovoo/goka"
 )
 
-func NewRouter() *gin.Engine {
+func NewRouter(bv *goka.View, atv *goka.View) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
@@ -18,7 +19,7 @@ func NewRouter() *gin.Engine {
 	v1 := router.Group("api/v1")
 	{
 		wallet := v1.Group("wallet")
-		walletController := controller.NewWalletController()
+		walletController := controller.NewWalletController(bv, atv)
 		{
 			wallet.POST("/deposit", walletController.Deposit)
 			wallet.GET("/details/:walletId", walletController.GetDetails)

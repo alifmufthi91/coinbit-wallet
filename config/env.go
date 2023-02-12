@@ -16,7 +16,7 @@ type Environment struct {
 	KafkaBrokers []string
 }
 
-func EnvInit() {
+func InitEnv() {
 	err := godotenv.Load()
 	if err != nil {
 		panic("Error loading .env file")
