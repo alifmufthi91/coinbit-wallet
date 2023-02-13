@@ -52,7 +52,7 @@ func (wc walletController) Deposit(c *gin.Context) {
 
 	emitter.EmitDeposit(deposit)
 
-	responseUtil.Success(c, nil, false)
+	responseUtil.Success(c, nil)
 	logger.Info("deposit to wallet success")
 }
 
@@ -101,10 +101,11 @@ func (wc walletController) GetDetails(c *gin.Context) {
 		balance = val.GetBalance()
 	}
 	response := response.GetWalletDetailsResponse{
+		WalletId:       walletId,
 		Balance:        balance,
 		AboveThreshold: aboveThreshold,
 	}
 
-	responseUtil.Success(c, response, false)
+	responseUtil.Success(c, response)
 	logger.Info("get wallet details success")
 }

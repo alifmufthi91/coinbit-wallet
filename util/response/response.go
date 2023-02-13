@@ -7,15 +7,14 @@ import (
 )
 
 type Response struct {
-	Data      interface{} `json:"data,omitempty"`
-	Error     string      `json:"error,omitempty"`
-	Message   string      `json:"message,omitempty"`
-	Status    int         `json:"status,omitempty"`
-	FromCache bool        `json:"from_cache"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+	Message string      `json:"message,omitempty"`
+	Status  int         `json:"status,omitempty"`
 }
 
-func Success(c *gin.Context, data interface{}, isFromCache bool) {
-	respond(c, http.StatusOK, Response{Message: "SUCCESS", Data: data, Status: http.StatusOK, FromCache: isFromCache})
+func Success(c *gin.Context, data interface{}) {
+	respond(c, http.StatusOK, Response{Message: "SUCCESS", Data: data, Status: http.StatusOK})
 }
 
 func Fail(c *gin.Context, err string) {
