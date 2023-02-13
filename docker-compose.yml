@@ -1,0 +1,15 @@
+version: '3'
+services:
+  coinbit-wallet:
+    container_name: coinbit-wallet
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - '3000:3000'
+    logging:
+      options:
+        max-size: 50m
+    env_file:
+      - .env
