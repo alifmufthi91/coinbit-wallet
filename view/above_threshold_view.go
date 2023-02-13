@@ -2,7 +2,6 @@ package view
 
 import (
 	"coinbit-wallet/config"
-	"coinbit-wallet/processor"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
@@ -12,8 +11,8 @@ import (
 
 func CreateAboveThresholdView(brokers []string) *goka.View {
 	aboveThresholdView, err := goka.NewView(
-		config.Brokers,
-		processor.AboveThresholdTable,
+		brokers,
+		config.AboveThresholdTable,
 		new(util.AboveThresholdMapCodec),
 	)
 	if err != nil {
@@ -25,6 +24,11 @@ func CreateAboveThresholdView(brokers []string) *goka.View {
 func RunAboveThresholdView(view *goka.View, ctx context.Context) func() error {
 	return func() error {
 		logger.Info("Running Above Threshold View..")
-		return view.Run(ctx)
+		err := view.Run(ctx)
+		if err != nil {
+			logger.Error("Error running aboveThresholdView: %v", err)
+			panic(err)
+		}
+		return err
 	}
 }

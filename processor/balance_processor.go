@@ -6,20 +6,20 @@ import (
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
+	"sync"
 
 	"github.com/lovoo/goka"
 )
 
 var (
-	BalanceGroup goka.Group = "balance"
-	BalanceTable goka.Table = goka.GroupTable(BalanceGroup)
+	balanceMtx sync.Mutex
 )
 
 func RunBalanceProcessor(ctx context.Context, brokers []string) func() error {
 	return func() error {
 		logger.Info("Running balance processor..")
 
-		balanceGroup := goka.DefineGroup(BalanceGroup,
+		balanceGroup := goka.DefineGroup(config.BalanceGroup,
 			goka.Input(config.TopicDeposit, new(util.DepositCodec), processBalance),
 			goka.Persist(new(util.BalanceMapCodec)),
 		)
@@ -33,16 +33,24 @@ func RunBalanceProcessor(ctx context.Context, brokers []string) func() error {
 			panic(err)
 		}
 
-		return balanceProcessor.Run(ctx)
+		err = balanceProcessor.Run(ctx)
+		if err != nil {
+			logger.Error("Error running balanceProcessor: %v", err)
+			panic(err)
+		}
+		return err
 	}
 }
 
 func processBalance(ctx goka.Context, msg interface{}) {
 	logger.Info("process balance, data = %v", msg)
+	balanceMtx.Lock()
 	var balanceMap *model.BalanceMap
 
 	if val := ctx.Value(); val != nil {
 		balanceMap = val.(*model.BalanceMap)
+	} else {
+		balanceMap = &model.BalanceMap{}
 	}
 
 	deposit := msg.(*model.Deposit)
@@ -59,5 +67,6 @@ func processBalance(ctx goka.Context, msg interface{}) {
 	balance.Balance += deposit.GetAmount()
 	balanceMap.Items[balance.GetWalletId()] = balance
 	ctx.SetValue(balanceMap)
+	balanceMtx.Unlock()
 	logger.Info("wallet balance is procesed")
 }

@@ -6,20 +6,20 @@ import (
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
+	"sync"
 
 	"github.com/lovoo/goka"
 )
 
 var (
-	AboveThresholdGroup goka.Group = "aboveThreshold"
-	AboveThresholdTable goka.Table = goka.GroupTable(AboveThresholdGroup)
+	aboveThresholdMtx sync.Mutex
 )
 
 func RunAboveThresholdProcessor(ctx context.Context, brokers []string) func() error {
 	return func() error {
 		logger.Info("Running above threshold processor..")
 
-		aboveThresholdGroup := goka.DefineGroup(AboveThresholdGroup,
+		aboveThresholdGroup := goka.DefineGroup(config.AboveThresholdGroup,
 			goka.Input(config.TopicDeposit, new(util.DepositCodec), processAboveThreshold),
 			goka.Persist(new(util.AboveThresholdMapCodec)),
 		)
@@ -33,16 +33,24 @@ func RunAboveThresholdProcessor(ctx context.Context, brokers []string) func() er
 			panic(err)
 		}
 
-		return aboveThresholdProcessor.Run(ctx)
+		err = aboveThresholdProcessor.Run(ctx)
+		if err != nil {
+			logger.Error("Error running aboveThresholdProcessor: %v", err)
+			panic(err)
+		}
+		return err
 	}
 }
 
 func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	logger.Info("process above threshold, data = %v", msg)
+	aboveThresholdMtx.Lock()
 	var aboveThresholdMap *model.AboveThresholdMap
 
 	if val := ctx.Value(); val != nil {
 		aboveThresholdMap = val.(*model.AboveThresholdMap)
+	} else {
+		aboveThresholdMap = &model.AboveThresholdMap{}
 	}
 
 	deposit := msg.(*model.Deposit)
@@ -70,5 +78,6 @@ func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	}
 	aboveThresholdMap.Items[aboveThreshold.GetWalletId()] = aboveThreshold
 	ctx.SetValue(aboveThresholdMap)
+	aboveThresholdMtx.Unlock()
 	logger.Info("wallet above threshold is procesed")
 }

@@ -13,8 +13,8 @@ var (
 	depositEmitter *goka.Emitter
 )
 
-func RunDepositEmitter(brokers []string, stream goka.Stream) {
-	logger.Info("Running deposit emitter..")
+func InitDepositEmitter(brokers []string, stream goka.Stream) {
+	logger.Info("Init deposit emitter..")
 	var err error
 	depositEmitter, err = goka.NewEmitter(brokers, stream, new(util.DepositCodec))
 	if err != nil {

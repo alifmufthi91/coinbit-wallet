@@ -1,7 +1,7 @@
 package view
 
 import (
-	"coinbit-wallet/processor"
+	"coinbit-wallet/config"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
@@ -12,7 +12,7 @@ import (
 func CreateBalanceView(brokers []string) *goka.View {
 	balanceView, err := goka.NewView(
 		brokers,
-		processor.BalanceTable,
+		config.BalanceTable,
 		new(util.BalanceMapCodec),
 	)
 	if err != nil {
@@ -24,6 +24,11 @@ func CreateBalanceView(brokers []string) *goka.View {
 func RunBalanceView(view *goka.View, ctx context.Context) func() error {
 	return func() error {
 		logger.Info("Running balance View..")
-		return view.Run(ctx)
+		err := view.Run(ctx)
+		if err != nil {
+			logger.Error("Error running balanceView: %v", err)
+			panic(err)
+		}
+		return err
 	}
 }

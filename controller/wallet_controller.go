@@ -9,11 +9,9 @@ import (
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	responseUtil "coinbit-wallet/util/response"
-	"encoding/json"
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
 	"github.com/lovoo/goka"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -24,14 +22,14 @@ type IWalletController interface {
 }
 
 type walletController struct {
-	balanveView        *goka.View
+	balanceView        *goka.View
 	aboveThresholdView *goka.View
 }
 
 func NewWalletController(bv *goka.View, atv *goka.View) IWalletController {
 	logger.Info("Initializing wallet controller..")
 	return walletController{
-		balanveView:        bv,
+		balanceView:        bv,
 		aboveThresholdView: atv,
 	}
 }
@@ -41,13 +39,7 @@ func (wc walletController) Deposit(c *gin.Context) {
 	logger.Info("deposit to wallet request")
 
 	var body request.WalletDepositRequest
-	err := json.NewDecoder(c.Request.Body).Decode(&body)
-	if err != nil {
-		panic(err)
-	}
-
-	v := validator.New()
-	err = v.Struct(body)
+	err := c.ShouldBind(&body)
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +50,7 @@ func (wc walletController) Deposit(c *gin.Context) {
 		DepositedAt: timestamppb.Now(),
 	}
 
-	go emitter.EmitDeposit(deposit)
+	emitter.EmitDeposit(deposit)
 
 	responseUtil.Success(c, nil, false)
 	logger.Info("deposit to wallet success")
@@ -79,12 +71,18 @@ func (wc walletController) GetDetails(c *gin.Context) {
 		if err != nil {
 			panic(err)
 		}
+		if aboveThresholdMap == nil {
+			aboveThresholdMap = &model.AboveThresholdMap{}
+		}
 		wg.Done()
 	}()
 	go func() {
-		err := util.GetView(wc.balanveView, string(config.TopicDeposit), &balanceMap)
+		err := util.GetView(wc.balanceView, string(config.TopicDeposit), &balanceMap)
 		if err != nil {
 			panic(err)
+		}
+		if balanceMap == nil {
+			balanceMap = &model.BalanceMap{}
 		}
 		wg.Done()
 	}()

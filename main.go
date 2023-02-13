@@ -14,12 +14,19 @@ import (
 )
 
 func main() {
+	Init()
+	RunGokaAndServer()
+}
+
+func Init() {
 	logger.Init()
 	config.InitEnv()
 	config.InitGoka()
 
-	env := config.GetEnv()
+	emitter.InitDepositEmitter(config.Brokers, config.TopicDeposit)
+}
 
+func RunGokaAndServer() {
 	balanceView := view.CreateBalanceView(config.Brokers)
 	aboveThresholdView := view.CreateAboveThresholdView(config.Brokers)
 
@@ -28,15 +35,13 @@ func main() {
 
 	defer cancel()
 
-	emitter.RunDepositEmitter(config.Brokers, config.TopicDeposit)
-
 	grp.Go(processor.RunBalanceProcessor(ctx, config.Brokers))
 	grp.Go(processor.RunAboveThresholdProcessor(ctx, config.Brokers))
 	grp.Go(view.RunBalanceView(balanceView, ctx))
 	grp.Go(view.RunAboveThresholdView(aboveThresholdView, ctx))
 
+	env := config.GetEnv()
 	router := server.NewRouter(balanceView, aboveThresholdView)
-
 	logger.Info(fmt.Sprintf("Running Server on Port: %s", env.Port))
 	err := router.Run(fmt.Sprintf("localhost:%s", env.Port))
 	if err != nil {

@@ -11,7 +11,9 @@ func GetView[T any](view *goka.View, stream string, dest *T) error {
 	if err != nil {
 		return err
 	} else if val == nil {
-		return errors.New("view is not found")
+		// var result T
+		*dest = *new(T)
+		return nil
 	}
 	var ok bool
 	*dest, ok = val.(T)
