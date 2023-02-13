@@ -64,7 +64,7 @@ func EnsureStreamExists(topic string, brokers []string) func() error {
 		defer tm.Close()
 		err := tm.EnsureStreamExists(topic, 8)
 		if err != nil {
-			logger.Error("Error creating kafka topic %s: %v", topic, err)
+			logger.Error("Error creating kafka topic %s: %v", TopicDeposit, err)
 		}
 		return err
 	}
