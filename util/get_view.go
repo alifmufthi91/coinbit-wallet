@@ -6,8 +6,8 @@ import (
 	"github.com/lovoo/goka"
 )
 
-func GetView[T any](view *goka.View, stream string, dest *T) error {
-	val, err := view.Get(stream)
+func GetView[T any](view *goka.View, key string, dest *T) error {
+	val, err := view.Get(key)
 	if err != nil {
 		return err
 	} else if val == nil {

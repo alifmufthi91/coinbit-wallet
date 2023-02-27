@@ -8,43 +8,88 @@ import (
 	"coinbit-wallet/util/logger"
 	"coinbit-wallet/view"
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"time"
 
-	"golang.org/x/sync/errgroup"
+	"github.com/lovoo/goka"
 )
 
 func main() {
 	Init()
-	RunGokaAndServer()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigint := make(chan os.Signal, 1)
+	signal.Notify(sigint, os.Interrupt)
+	go func() {
+		<-sigint
+		logger.Info("Received SIGINT. Cancelling context...")
+		cancel()
+	}()
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	defer wg.Wait()
+
+	balanceView := view.CreateBalanceView(config.Brokers)
+	aboveThresholdView := view.CreateAboveThresholdView(config.Brokers)
+
+	go RunGokaProcessors(ctx, &wg)
+	go RunGokaViewers(balanceView, aboveThresholdView)
+	RunServer(balanceView, aboveThresholdView, &wg)
 }
 
 func Init() {
 	logger.Init()
-	config.InitEnv()
 	config.InitGoka()
-
 	emitter.InitDepositEmitter(config.Brokers, config.TopicDeposit)
 }
 
-func RunGokaAndServer() {
-	balanceView := view.CreateBalanceView(config.Brokers)
-	aboveThresholdView := view.CreateAboveThresholdView(config.Brokers)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	grp, ctx := errgroup.WithContext(ctx)
-
-	defer cancel()
-
-	grp.Go(processor.RunBalanceProcessor(ctx, config.Brokers))
-	grp.Go(processor.RunAboveThresholdProcessor(ctx, config.Brokers))
-	grp.Go(view.RunBalanceView(balanceView, ctx))
-	grp.Go(view.RunAboveThresholdView(aboveThresholdView, ctx))
-
+func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.WaitGroup) {
 	env := config.GetEnv()
 	router := server.NewRouter(balanceView, aboveThresholdView)
-	logger.Info(fmt.Sprintf("Running Server on Port: %s", env.Port))
-	err := router.Run(fmt.Sprintf("localhost:%s", env.Port))
-	if err != nil {
-		panic(err)
+	logger.Info("Running Server on Port: %s", env.Port)
+	srv := http.Server{
+		Addr:    fmt.Sprint(":", env.Port),
+		Handler: router,
 	}
+
+	go func() {
+		wg.Wait()
+		logger.Info("Received cancellation signal. Shutting down server...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatal("Server forced to shutdown:", err)
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Printf("listen: %s\n", err)
+	}
+}
+
+func RunGokaProcessors(ctx context.Context, wg *sync.WaitGroup) {
+	go func() {
+		processor.RunBalanceProcessor(ctx, config.Brokers)
+		wg.Done()
+	}()
+	go func() {
+		processor.RunAboveThresholdProcessor(ctx, config.Brokers)
+		wg.Done()
+	}()
+}
+
+func RunGokaViewers(balanceView *goka.View, aboveThresholdView *goka.View) {
+	go view.RunBalanceView(balanceView, context.Background())
+	go view.RunAboveThresholdView(aboveThresholdView, context.Background())
 }

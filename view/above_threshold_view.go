@@ -13,7 +13,7 @@ func CreateAboveThresholdView(brokers []string) *goka.View {
 	aboveThresholdView, err := goka.NewView(
 		brokers,
 		config.AboveThresholdTable,
-		new(util.AboveThresholdMapCodec),
+		new(util.AboveThresholdCodec),
 	)
 	if err != nil {
 		panic(err)
@@ -21,14 +21,7 @@ func CreateAboveThresholdView(brokers []string) *goka.View {
 	return aboveThresholdView
 }
 
-func RunAboveThresholdView(view *goka.View, ctx context.Context) func() error {
-	return func() error {
-		logger.Info("Running Above Threshold View..")
-		err := view.Run(ctx)
-		if err != nil {
-			logger.Error("Error running aboveThresholdView: %v", err)
-			panic(err)
-		}
-		return err
-	}
+func RunAboveThresholdView(view *goka.View, ctx context.Context) error {
+	logger.Info("Running Above Threshold View..")
+	return view.Run(ctx)
 }

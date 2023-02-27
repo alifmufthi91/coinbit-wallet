@@ -1,7 +1,6 @@
 package emitter
 
 import (
-	"coinbit-wallet/config"
 	"coinbit-wallet/generated/model"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
@@ -23,11 +22,13 @@ func InitDepositEmitter(brokers []string, stream goka.Stream) {
 	}
 }
 
-func EmitDeposit(deposit *model.Deposit) {
+func EmitDeposit(deposit *model.Deposit) error {
 	logger.Info("emitting deposit request")
-	err := depositEmitter.EmitSync(string(config.TopicDeposit), deposit)
+	err := depositEmitter.EmitSync(deposit.WalletId, deposit)
 	if err != nil {
 		logger.Error("error emitting message: %v", err)
+		return err
 	}
 	logger.Info("deposit request emitted")
+	return nil
 }

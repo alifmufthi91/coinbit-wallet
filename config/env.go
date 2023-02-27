@@ -4,15 +4,18 @@ import (
 	"coinbit-wallet/util/logger"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
 
-var env Environment
+var (
+	env  Environment
+	once sync.Once
+)
 
 type Environment struct {
-	Port string
-
+	Port         string
 	KafkaBrokers []string
 }
 
@@ -30,6 +33,8 @@ func InitEnv() {
 }
 
 func GetEnv() *Environment {
-
+	once.Do(func() {
+		InitEnv()
+	})
 	return &env
 }

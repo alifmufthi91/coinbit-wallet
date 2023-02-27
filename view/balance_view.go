@@ -13,7 +13,7 @@ func CreateBalanceView(brokers []string) *goka.View {
 	balanceView, err := goka.NewView(
 		brokers,
 		config.BalanceTable,
-		new(util.BalanceMapCodec),
+		new(util.BalanceCodec),
 	)
 	if err != nil {
 		panic(err)
@@ -21,14 +21,7 @@ func CreateBalanceView(brokers []string) *goka.View {
 	return balanceView
 }
 
-func RunBalanceView(view *goka.View, ctx context.Context) func() error {
-	return func() error {
-		logger.Info("Running balance View..")
-		err := view.Run(ctx)
-		if err != nil {
-			logger.Error("Error running balanceView: %v", err)
-			panic(err)
-		}
-		return err
-	}
+func RunBalanceView(view *goka.View, ctx context.Context) error {
+	logger.Info("Running balance View..")
+	return view.Run(ctx)
 }
