@@ -57,7 +57,7 @@ func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.W
 	router := server.NewRouter(balanceView, aboveThresholdView)
 	logger.Info("Running Server on Port: %s", env.Port)
 	srv := http.Server{
-		Addr:    fmt.Sprint(":", env.Port),
+		Addr:    fmt.Sprintf("localhost:%s", env.Port),
 		Handler: router,
 	}
 

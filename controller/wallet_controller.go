@@ -90,10 +90,14 @@ func (wc walletController) GetDetails(c *gin.Context) {
 	wg.Wait()
 
 	var isAboveThreshold bool
-	if timestamppb.Now().Seconds > aboveThreshold.StartPeriod.Seconds+120 {
+	if aboveThreshold.StartPeriod == nil {
 		isAboveThreshold = false
 	} else {
-		isAboveThreshold = aboveThreshold.GetStatus()
+		if timestamppb.Now().Seconds > aboveThreshold.StartPeriod.Seconds+120 {
+			isAboveThreshold = false
+		} else {
+			isAboveThreshold = aboveThreshold.GetStatus()
+		}
 	}
 
 	response := response.GetWalletDetailsResponse{

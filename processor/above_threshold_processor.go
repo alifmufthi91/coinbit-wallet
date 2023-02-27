@@ -6,6 +6,7 @@ import (
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
+	"fmt"
 
 	"github.com/lovoo/goka"
 )
@@ -40,7 +41,6 @@ func RunAboveThresholdProcessor(ctx context.Context, brokers []string) error {
 	err = processor.Run(ctx)
 	if err != nil {
 		logger.Error("Error running aboveThresholdProcessor: %v", err)
-		panic(err)
 	}
 	return err
 }
@@ -48,11 +48,15 @@ func RunAboveThresholdProcessor(ctx context.Context, brokers []string) error {
 func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	logger.Info("process above threshold, data = %v", msg)
 	var aboveThreshold *model.AboveThreshold
+	var ok bool
 
 	deposit := msg.(*model.Deposit)
 
 	if val := ctx.Value(); val != nil {
-		aboveThreshold = val.(*model.AboveThreshold)
+		aboveThreshold, ok = val.(*model.AboveThreshold)
+		if !ok {
+			ctx.Fail(fmt.Errorf("processing failed due to casting failure"))
+		}
 	} else {
 		aboveThreshold = &model.AboveThreshold{
 			WalletId:    deposit.GetWalletId(),
