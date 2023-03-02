@@ -22,7 +22,7 @@ var (
 func InitGoka() {
 	logger.Info("Init Goka configuration")
 
-	Brokers = []string{"localhost:9092"}
+	Brokers = GetEnv().KafkaBrokers
 	logger.Info("brokers : %v", Brokers)
 
 	ctx, cancel := context.WithCancel(context.Background())

@@ -12,7 +12,7 @@ import (
 )
 
 type BalanceProcessor struct {
-	group *goka.GroupGraph
+	Group *goka.GroupGraph
 }
 
 func NewBalanceProcessor() BalanceProcessor {
@@ -21,7 +21,7 @@ func NewBalanceProcessor() BalanceProcessor {
 		goka.Persist(new(util.BalanceCodec)),
 	)
 	bp := BalanceProcessor{
-		group: balanceGroup,
+		Group: balanceGroup,
 	}
 	return bp
 }
@@ -31,7 +31,7 @@ func RunBalanceProcessor(ctx context.Context, brokers []string) error {
 
 	balanceProcessor := NewBalanceProcessor()
 	processor, err := goka.NewProcessor(brokers,
-		balanceProcessor.group,
+		balanceProcessor.Group,
 		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
 		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
 	)

@@ -9,10 +9,11 @@ import (
 	"fmt"
 
 	"github.com/lovoo/goka"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type AboveThresholdProcessor struct {
-	group *goka.GroupGraph
+	Group *goka.GroupGraph
 }
 
 func NewAboveThresholdProcessor() AboveThresholdProcessor {
@@ -21,7 +22,7 @@ func NewAboveThresholdProcessor() AboveThresholdProcessor {
 		goka.Persist(new(util.AboveThresholdCodec)),
 	)
 	atp := AboveThresholdProcessor{
-		group: aboveThresholdGroup,
+		Group: aboveThresholdGroup,
 	}
 	return atp
 }
@@ -30,7 +31,7 @@ func RunAboveThresholdProcessor(ctx context.Context, brokers []string) error {
 	logger.Info("Running above threshold processor..")
 	aboveThresholdProcessor := NewAboveThresholdProcessor()
 	processor, err := goka.NewProcessor(brokers,
-		aboveThresholdProcessor.group,
+		aboveThresholdProcessor.Group,
 		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
 		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
 	)
@@ -66,10 +67,8 @@ func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	}
 
 	// if deposit already past two minutes period
-	if deposit.DepositedAt.Seconds > aboveThreshold.StartPeriod.Seconds+120 {
-		aboveThreshold.AmountWithinTwoMins = 0
-		aboveThreshold.Status = false
-		aboveThreshold.StartPeriod = deposit.DepositedAt
+	if !util.IsWithinTwoMins(aboveThreshold.StartPeriod, deposit.DepositedAt) {
+		resetAboveThreshold(aboveThreshold, deposit.DepositedAt)
 	}
 	aboveThreshold.AmountWithinTwoMins += deposit.GetAmount()
 	if aboveThreshold.AmountWithinTwoMins > 10000 {
@@ -77,4 +76,10 @@ func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	}
 	ctx.SetValue(aboveThreshold)
 	logger.Info("wallet above threshold is procesed")
+}
+
+func resetAboveThreshold(aboveThreshold *model.AboveThreshold, currentTime *timestamppb.Timestamp) {
+	aboveThreshold.AmountWithinTwoMins = 0
+	aboveThreshold.Status = false
+	aboveThreshold.StartPeriod = currentTime
 }

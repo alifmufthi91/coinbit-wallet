@@ -47,7 +47,6 @@ func main() {
 }
 
 func Init() {
-	logger.Init()
 	config.InitGoka()
 	emitter.InitDepositEmitter(config.Brokers, config.TopicDeposit)
 }
@@ -55,9 +54,8 @@ func Init() {
 func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.WaitGroup) {
 	env := config.GetEnv()
 	router := server.NewRouter(balanceView, aboveThresholdView)
-	logger.Info("Running Server on Port: %s", env.Port)
 	srv := http.Server{
-		Addr:    fmt.Sprintf("localhost:%s", env.Port),
+		Addr:    fmt.Sprintf("0.0.0.0:%s", env.Port),
 		Handler: router,
 	}
 
@@ -73,6 +71,7 @@ func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.W
 		}
 	}()
 
+	logger.Info("Running Server on Port: %s", env.Port)
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("listen: %s\n", err)
 	}
