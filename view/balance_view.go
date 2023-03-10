@@ -2,26 +2,51 @@ package view
 
 import (
 	"coinbit-wallet/config"
+	"coinbit-wallet/generated/model"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
 	"context"
+	"errors"
 
 	"github.com/lovoo/goka"
 )
 
-func CreateBalanceView(brokers []string) *goka.View {
+type BalanceView struct {
+	view *goka.View
+}
+
+func NewBalanceView(brokers []string) (*BalanceView, error) {
 	balanceView, err := goka.NewView(
 		brokers,
 		config.BalanceTable,
 		new(util.BalanceCodec),
 	)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return balanceView
+	return &BalanceView{
+		view: balanceView,
+	}, nil
 }
 
-func RunBalanceView(view *goka.View, ctx context.Context) error {
+func (bv *BalanceView) Run(ctx context.Context) error {
 	logger.Info("Running balance View..")
-	return view.Run(ctx)
+	return bv.view.Run(ctx)
+}
+
+func (bv *BalanceView) GetByKey(key string) (*model.Balance, error) {
+	logger.Info("Get balance by key, key = %s", key)
+	val, err := bv.view.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
+		return nil, errors.New("balance is not found")
+	}
+	var balance *model.Balance
+	var ok bool
+	if balance, ok = val.(*model.Balance); !ok {
+		return nil, errors.New("failed to cast type")
+	}
+	return balance, nil
 }

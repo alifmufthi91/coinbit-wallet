@@ -16,8 +16,6 @@ import (
 	"os/signal"
 	"sync"
 	"time"
-
-	"github.com/lovoo/goka"
 )
 
 func main() {
@@ -38,8 +36,17 @@ func main() {
 	wg.Add(2)
 	defer wg.Wait()
 
-	balanceView := view.CreateBalanceView(config.Brokers)
-	aboveThresholdView := view.CreateAboveThresholdView(config.Brokers)
+	var err error
+	var balanceView *view.BalanceView
+	var aboveThresholdView *view.AboveThresholdView
+
+	if balanceView, err = view.NewBalanceView(config.Brokers); err != nil {
+		panic(err)
+	}
+
+	if aboveThresholdView, err = view.NewAboveThresholdView(config.Brokers); err != nil {
+		panic(err)
+	}
 
 	go RunGokaProcessors(ctx, &wg)
 	go RunGokaViewers(balanceView, aboveThresholdView)
@@ -51,7 +58,7 @@ func Init() {
 	emitter.InitDepositEmitter(config.Brokers, config.TopicDeposit)
 }
 
-func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.WaitGroup) {
+func RunServer(balanceView *view.BalanceView, aboveThresholdView *view.AboveThresholdView, wg *sync.WaitGroup) {
 	env := config.GetEnv()
 	router := server.NewRouter(balanceView, aboveThresholdView)
 	srv := http.Server{
@@ -94,10 +101,10 @@ func RunGokaProcessors(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 }
 
-func RunGokaViewers(balanceView *goka.View, aboveThresholdView *goka.View) {
+func RunGokaViewers(balanceView *view.BalanceView, aboveThresholdView *view.AboveThresholdView) {
 	go func() {
 		for {
-			err := view.RunBalanceView(balanceView, context.Background())
+			err := balanceView.Run(context.Background())
 			if err != nil {
 				logger.Error("Error running balance view : %s", err.Error())
 			}
@@ -105,7 +112,7 @@ func RunGokaViewers(balanceView *goka.View, aboveThresholdView *goka.View) {
 	}()
 	go func() {
 		for {
-			err := view.RunAboveThresholdView(aboveThresholdView, context.Background())
+			err := aboveThresholdView.Run(context.Background())
 			if err != nil {
 				logger.Error("Error running above threshold view : %s", err.Error())
 			}
