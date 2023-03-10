@@ -11,25 +11,42 @@ import (
 	"github.com/lovoo/goka"
 	"github.com/lovoo/goka/tester"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_AboveThresholdProcessor(t *testing.T) {
+type AboveThresholdProcessorSuite struct {
+	suite.Suite
+	aboveThresholdProcessor processor.AboveThresholdProcessor
+	gkt                     *tester.Tester
+}
+
+func TestAboveThresholdProcessorSuite(t *testing.T) {
+	suite.Run(t, new(AboveThresholdProcessorSuite))
+}
+
+func (at *AboveThresholdProcessorSuite) SetupSuite() {
+	at.aboveThresholdProcessor = processor.NewAboveThresholdProcessor()
+	at.gkt = tester.New(at.T())
+	proc, err := goka.NewProcessor([]string{}, at.aboveThresholdProcessor.Group,
+		goka.WithTester(at.gkt),
+	)
+
+	require.Nil(at.T(), err)
+
+	go proc.Run(context.Background())
+}
+
+func (at *AboveThresholdProcessorSuite) BeforeTest(_, _ string) {
+	at.gkt.ClearValues()
+}
+
+func (at *AboveThresholdProcessorSuite) TestAboveThresholdProcessor_Process() {
 
 	var (
 		expectedStatus bool
 		expectedAmount float32
 	)
-
-	gkt := tester.New(t)
-
-	aboveThresholdProcessor := processor.NewAboveThresholdProcessor()
-	// create a new processor, registering the tester
-	proc, _ := goka.NewProcessor([]string{}, aboveThresholdProcessor.Group,
-		goka.WithTester(gkt),
-	)
-
-	go proc.Run(context.Background())
 
 	aboveThreshold := model.AboveThreshold{
 		WalletId:            "111-222",
@@ -44,34 +61,34 @@ func Test_AboveThresholdProcessor(t *testing.T) {
 		DepositedAt: timestamppb.Now(),
 	}
 
-	gkt.SetTableValue(config.AboveThresholdTable, aboveThreshold.WalletId, &aboveThreshold)
+	at.gkt.SetTableValue(config.AboveThresholdTable, aboveThreshold.WalletId, &aboveThreshold)
 
-	gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
+	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
 
-	value := gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
+	value := at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
 	received := value.(*model.AboveThreshold)
 
 	// check wallet id
-	require.Equal(t, aboveThreshold.WalletId, received.WalletId)
+	require.Equal(at.T(), aboveThreshold.WalletId, received.WalletId)
 
 	// check first deposit amount and status
 	aboveThreshold.AmountWithinTwoMins += 7000
 	expectedStatus = false
 	expectedAmount = aboveThreshold.AmountWithinTwoMins
-	require.Equal(t, expectedAmount, received.AmountWithinTwoMins)
-	require.Equal(t, expectedStatus, received.Status)
+	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
+	require.Equal(at.T(), expectedStatus, received.Status)
 
 	// deposit another to make amount within two mins above 10.000
 	deposit.DepositedAt = timestamppb.New(time.Now().Add(5 * time.Second))
-	gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
+	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
 
-	value = gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
+	value = at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
 	received = value.(*model.AboveThreshold)
 
 	expectedAmount += 7000
 	expectedStatus = true
 
-	require.Equal(t, expectedAmount, received.AmountWithinTwoMins)
-	require.Equal(t, expectedStatus, received.Status)
+	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
+	require.Equal(at.T(), expectedStatus, received.Status)
 
 }

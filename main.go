@@ -79,16 +79,36 @@ func RunServer(balanceView *goka.View, aboveThresholdView *goka.View, wg *sync.W
 
 func RunGokaProcessors(ctx context.Context, wg *sync.WaitGroup) {
 	go func() {
-		processor.RunBalanceProcessor(ctx, config.Brokers)
+		err := processor.RunBalanceProcessor(ctx, config.Brokers)
+		if err != nil {
+			logger.Error("Error running balance processor: %s", err.Error())
+		}
 		wg.Done()
 	}()
 	go func() {
-		processor.RunAboveThresholdProcessor(ctx, config.Brokers)
+		err := processor.RunAboveThresholdProcessor(ctx, config.Brokers)
+		if err != nil {
+			logger.Error("Error running above threshold processor: %s", err.Error())
+		}
 		wg.Done()
 	}()
 }
 
 func RunGokaViewers(balanceView *goka.View, aboveThresholdView *goka.View) {
-	go view.RunBalanceView(balanceView, context.Background())
-	go view.RunAboveThresholdView(aboveThresholdView, context.Background())
+	go func() {
+		for {
+			err := view.RunBalanceView(balanceView, context.Background())
+			if err != nil {
+				logger.Error("Error running balance view : %s", err.Error())
+			}
+		}
+	}()
+	go func() {
+		for {
+			err := view.RunAboveThresholdView(aboveThresholdView, context.Background())
+			if err != nil {
+				logger.Error("Error running above threshold view : %s", err.Error())
+			}
+		}
+	}()
 }

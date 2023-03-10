@@ -23,7 +23,7 @@ func InitGoka() {
 	logger.Info("Init Goka configuration")
 
 	Brokers = GetEnv().KafkaBrokers
-	logger.Info("brokers : %v", Brokers)
+	logger.Info("kafka brokers : %v", Brokers)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	grp, ctx := errgroup.WithContext(ctx)

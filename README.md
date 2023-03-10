@@ -19,14 +19,11 @@ This project is simple deposit and get wallet balance application to fulfill Sto
 #  Get into the project directory
 cd coinbit-wallet
 
-#  Copy .env-example and modify the .env file
+#  Copy .env-example and modify the .env file manually
 cp .env-example .env
 
-#  Install dependencies
-go mod download
-
-#  Run the server locally
-go run .
+#  Using Docker Compose
+docker compose up -d
 ```
 
 ## Example

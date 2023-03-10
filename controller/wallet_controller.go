@@ -7,7 +7,7 @@ import (
 	"coinbit-wallet/generated/model"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
-	responseUtil "coinbit-wallet/util/response"
+	"coinbit-wallet/util/response_util"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -34,7 +34,6 @@ func NewWalletController(bv *goka.View, atv *goka.View) IWalletController {
 }
 
 func (wc walletController) Deposit(c *gin.Context) {
-	defer responseUtil.ErrorHandling(c)
 	logger.Info("deposit to wallet request")
 
 	var body request.WalletDepositRequest
@@ -53,12 +52,11 @@ func (wc walletController) Deposit(c *gin.Context) {
 		panic(err)
 	}
 
-	responseUtil.Success(c, nil)
+	response_util.Ok(c, nil, false)
 	logger.Info("deposit to wallet success")
 }
 
 func (wc walletController) GetDetails(c *gin.Context) {
-	defer responseUtil.ErrorHandling(c)
 	logger.Info("Get details wallet request")
 	walletId := c.Param("walletId")
 	wg := sync.WaitGroup{}
@@ -103,6 +101,6 @@ func (wc walletController) GetDetails(c *gin.Context) {
 		AboveThreshold: isAboveThreshold,
 	}
 
-	responseUtil.Success(c, response)
+	response_util.Ok(c, response, false)
 	logger.Info("get wallet details success")
 }

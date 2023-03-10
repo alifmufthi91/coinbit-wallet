@@ -10,19 +10,39 @@ import (
 	"github.com/lovoo/goka"
 	"github.com/lovoo/goka/tester"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func Test_BalanceProcessor(t *testing.T) {
-	gkt := tester.New(t)
+type BalanceProcessorSuite struct {
+	suite.Suite
+	balanceProcessor processor.BalanceProcessor
+	gkt              *tester.Tester
+	proc             *goka.Processor
+}
 
-	balanceProcessor := processor.NewBalanceProcessor()
-	// create a new processor, registering the tester
-	proc, _ := goka.NewProcessor([]string{}, balanceProcessor.Group,
-		goka.WithTester(gkt),
+func TestBalanceProcessorSuite(t *testing.T) {
+	suite.Run(t, new(BalanceProcessorSuite))
+}
+
+func (bp *BalanceProcessorSuite) SetupSuite() {
+	bp.balanceProcessor = processor.NewBalanceProcessor()
+	bp.gkt = tester.New(bp.T())
+
+	proc, err := goka.NewProcessor([]string{}, bp.balanceProcessor.Group,
+		goka.WithTester(bp.gkt),
 	)
 
+	require.Nil(bp.T(), err)
+
 	go proc.Run(context.Background())
+}
+
+func (bp *BalanceProcessorSuite) BeforeTest(_, _ string) {
+	bp.gkt.ClearValues()
+}
+
+func (bp *BalanceProcessorSuite) TestBalanceProcessor_Process() {
 
 	deposit := model.Deposit{
 		WalletId:    "111-222",
@@ -35,18 +55,18 @@ func Test_BalanceProcessor(t *testing.T) {
 		Balance:  float32(1000),
 	}
 
-	gkt.SetTableValue(config.BalanceTable, balance.WalletId, &balance)
+	bp.gkt.SetTableValue(config.BalanceTable, balance.WalletId, &balance)
 
-	gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
+	bp.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
 
-	value := gkt.TableValue(config.BalanceTable, deposit.WalletId)
+	value := bp.gkt.TableValue(config.BalanceTable, deposit.WalletId)
 	received := value.(*model.Balance)
 
 	// check wallet id
-	require.Equal(t, balance.WalletId, received.WalletId)
+	require.Equal(bp.T(), balance.WalletId, received.WalletId)
 
 	// check if balance is already added by 2000
 	balance.Balance += 2000
-	require.Equal(t, balance.Balance, received.Balance)
+	require.Equal(bp.T(), balance.Balance, received.Balance)
 
 }
