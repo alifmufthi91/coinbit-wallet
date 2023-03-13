@@ -1,14 +1,13 @@
 package service
 
 import (
+	"coinbit-wallet/dto/app"
 	"coinbit-wallet/dto/request"
 	"coinbit-wallet/dto/response"
 	"coinbit-wallet/emitter"
 	"coinbit-wallet/generated/model"
 	"coinbit-wallet/util/logger"
 	"coinbit-wallet/view"
-
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type IWalletService interface {
@@ -20,13 +19,15 @@ type WalletService struct {
 	balanceView        view.IBalanceView
 	aboveThresholdView view.IAboveThresholdView
 	depositEmitter     emitter.IDepositEmitter
+	timestampGen       app.ITimestampGenerator
 }
 
-func NewWalletService(bv *view.BalanceView, atv *view.AboveThresholdView, e *emitter.DepositEmitter) WalletService {
+func NewWalletService(bv view.IBalanceView, atv view.IAboveThresholdView, e emitter.IDepositEmitter, tg app.ITimestampGenerator) WalletService {
 	return WalletService{
 		balanceView:        bv,
 		aboveThresholdView: atv,
 		depositEmitter:     e,
+		timestampGen:       tg,
 	}
 }
 
@@ -35,7 +36,7 @@ func (ws WalletService) DepositWallet(request request.WalletDepositRequest) erro
 	deposit := &model.Deposit{
 		WalletId:    request.WalletId,
 		Amount:      request.Amount,
-		DepositedAt: timestamppb.Now(),
+		DepositedAt: ws.timestampGen.Generate(),
 	}
 
 	if err := ws.depositEmitter.EmitSync(deposit); err != nil {
