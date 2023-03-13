@@ -13,37 +13,31 @@ import (
 )
 
 type AboveThresholdProcessor struct {
-	Group *goka.GroupGraph
+	Processor *goka.Processor
 }
 
-func NewAboveThresholdProcessor() AboveThresholdProcessor {
+func NewAboveThresholdProcessor(brokers []string, options ...goka.ProcessorOption) (*AboveThresholdProcessor, error) {
+	logger.Info("Create new above threshold processor..")
 	aboveThresholdGroup := goka.DefineGroup(config.AboveThresholdGroup,
 		goka.Input(config.TopicDeposit, new(util.DepositCodec), processAboveThreshold),
 		goka.Persist(new(util.AboveThresholdCodec)),
 	)
-	atp := AboveThresholdProcessor{
-		Group: aboveThresholdGroup,
-	}
-	return atp
-}
-
-func RunAboveThresholdProcessor(ctx context.Context, brokers []string) error {
-	logger.Info("Running above threshold processor..")
-	aboveThresholdProcessor := NewAboveThresholdProcessor()
 	processor, err := goka.NewProcessor(brokers,
-		aboveThresholdProcessor.Group,
-		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
-		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
+		aboveThresholdGroup,
+		options...,
 	)
 	if err != nil {
 		logger.Error("error creating processor: %v", err)
-		panic(err)
+		return nil, err
 	}
-	err = processor.Run(ctx)
-	if err != nil {
-		logger.Error("Error running aboveThresholdProcessor: %v", err)
-	}
-	return err
+	return &AboveThresholdProcessor{
+		Processor: processor,
+	}, nil
+}
+
+func (atp *AboveThresholdProcessor) Run(ctx context.Context) error {
+	logger.Info("Running above threshold processor..")
+	return atp.Processor.Run(ctx)
 }
 
 func processAboveThreshold(ctx goka.Context, msg interface{}) {

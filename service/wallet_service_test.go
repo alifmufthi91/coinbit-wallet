@@ -3,11 +3,9 @@ package service_test
 import (
 	"coinbit-wallet/dto/request"
 	"coinbit-wallet/dto/response"
-	"coinbit-wallet/emitter"
 	"coinbit-wallet/generated/model"
+	"coinbit-wallet/mocks"
 	"coinbit-wallet/service"
-	"coinbit-wallet/util/time_util"
-	"coinbit-wallet/view"
 	"errors"
 	"testing"
 	"time"
@@ -21,9 +19,9 @@ import (
 type WalletServiceSuite struct {
 	suite.Suite
 	walletService      service.IWalletService
-	balanceView        *view.MockBalanceView
-	aboveThresholdView *view.MockAboveThresholdView
-	depositEmitter     *emitter.MockDepositEmitter
+	balanceView        *mocks.MockBalanceView
+	aboveThresholdView *mocks.MockAboveThresholdView
+	depositEmitter     *mocks.MockDepositEmitter
 	timestamp          time.Time
 }
 
@@ -32,11 +30,11 @@ func TestWalletServiceSuite(t *testing.T) {
 }
 
 func (s *WalletServiceSuite) SetupSuite() {
-	s.balanceView = new(view.MockBalanceView)
-	s.aboveThresholdView = new(view.MockAboveThresholdView)
-	s.depositEmitter = new(emitter.MockDepositEmitter)
+	s.balanceView = new(mocks.MockBalanceView)
+	s.aboveThresholdView = new(mocks.MockAboveThresholdView)
+	s.depositEmitter = new(mocks.MockDepositEmitter)
 	s.timestamp = time.Now()
-	timestampGen := time_util.MockTimestampGenerator{
+	timestampGen := mocks.MockTimestampGenerator{
 		Timestamp: s.timestamp,
 	}
 	s.walletService = service.NewWalletService(s.balanceView, s.aboveThresholdView, s.depositEmitter, timestampGen)

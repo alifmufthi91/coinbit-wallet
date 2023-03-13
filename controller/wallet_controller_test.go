@@ -6,7 +6,7 @@ import (
 	"coinbit-wallet/dto/request"
 	"coinbit-wallet/dto/response"
 	"coinbit-wallet/middleware"
-	"coinbit-wallet/service"
+	"coinbit-wallet/mocks"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,7 +21,7 @@ import (
 
 type WalletControllerSuite struct {
 	suite.Suite
-	walletService    *service.MockWalletService
+	walletService    *mocks.MockWalletService
 	walletController controller.WalletController
 	router           *gin.Engine
 }
@@ -31,7 +31,7 @@ func TestWalletControllerSuite(t *testing.T) {
 }
 
 func (c *WalletControllerSuite) SetupSuite() {
-	c.walletService = new(service.MockWalletService)
+	c.walletService = new(mocks.MockWalletService)
 	c.walletController = controller.NewWalletController(c.walletService)
 
 	c.router = gin.Default()

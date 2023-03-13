@@ -1,4 +1,4 @@
-package time_util
+package mocks
 
 import (
 	"time"

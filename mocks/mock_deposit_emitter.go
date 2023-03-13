@@ -1,4 +1,4 @@
-package emitter
+package mocks
 
 import (
 	"coinbit-wallet/generated/model"

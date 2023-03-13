@@ -17,7 +17,7 @@ import (
 
 type AboveThresholdProcessorSuite struct {
 	suite.Suite
-	aboveThresholdProcessor processor.AboveThresholdProcessor
+	aboveThresholdProcessor *processor.AboveThresholdProcessor
 	gkt                     *tester.Tester
 }
 
@@ -26,15 +26,14 @@ func TestAboveThresholdProcessorSuite(t *testing.T) {
 }
 
 func (at *AboveThresholdProcessorSuite) SetupSuite() {
-	at.aboveThresholdProcessor = processor.NewAboveThresholdProcessor()
 	at.gkt = tester.New(at.T())
-	proc, err := goka.NewProcessor([]string{}, at.aboveThresholdProcessor.Group,
-		goka.WithTester(at.gkt),
-	)
+
+	var err error
+	at.aboveThresholdProcessor, err = processor.NewAboveThresholdProcessor([]string{}, goka.WithTester(at.gkt))
 
 	require.Nil(at.T(), err)
 
-	go proc.Run(context.Background())
+	go at.aboveThresholdProcessor.Run(context.Background())
 }
 
 func (at *AboveThresholdProcessorSuite) BeforeTest(_, _ string) {
@@ -87,6 +86,19 @@ func (at *AboveThresholdProcessorSuite) TestAboveThresholdProcessor_Process() {
 
 	expectedAmount += 7000
 	expectedStatus = true
+
+	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
+	require.Equal(at.T(), expectedStatus, received.Status)
+
+	// deposit another to after two mins
+	deposit.DepositedAt = timestamppb.New(time.Now().Add(2 * time.Minute))
+	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
+
+	value = at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
+	received = value.(*model.AboveThreshold)
+
+	expectedAmount = 7000
+	expectedStatus = false
 
 	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
 	require.Equal(at.T(), expectedStatus, received.Status)

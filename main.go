@@ -16,12 +16,16 @@ import (
 	"os/signal"
 	"sync"
 	"time"
+
+	"github.com/lovoo/goka"
 )
 
 var (
-	balanceView        *view.BalanceView
-	aboveThresholdView *view.AboveThresholdView
-	depositEmitter     *emitter.DepositEmitter
+	balanceProcessor        *processor.BalanceProcessor
+	aboveThresholdProcessor *processor.AboveThresholdProcessor
+	balanceView             *view.BalanceView
+	aboveThresholdView      *view.AboveThresholdView
+	depositEmitter          *emitter.DepositEmitter
 )
 
 func main() {
@@ -93,14 +97,28 @@ func RunServer(bv *view.BalanceView, atv *view.AboveThresholdView, de *emitter.D
 
 func RunGokaProcessors(ctx context.Context, wg *sync.WaitGroup) {
 	go func() {
-		err := processor.RunBalanceProcessor(ctx, config.Brokers)
+		var err error
+		balanceProcessor, err = processor.NewBalanceProcessor(config.Brokers,
+			goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
+			goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder))
+		if err != nil {
+			panic(err)
+		}
+		err = balanceProcessor.Run(ctx)
 		if err != nil {
 			logger.Error("Error running balance processor: %s", err.Error())
 		}
 		wg.Done()
 	}()
 	go func() {
-		err := processor.RunAboveThresholdProcessor(ctx, config.Brokers)
+		var err error
+		aboveThresholdProcessor, err = processor.NewAboveThresholdProcessor(config.Brokers,
+			goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
+			goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder))
+		if err != nil {
+			panic(err)
+		}
+		err = aboveThresholdProcessor.Run(ctx)
 		if err != nil {
 			logger.Error("Error running above threshold processor: %s", err.Error())
 		}

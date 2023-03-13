@@ -12,38 +12,31 @@ import (
 )
 
 type BalanceProcessor struct {
-	Group *goka.GroupGraph
+	Processor *goka.Processor
 }
 
-func NewBalanceProcessor() BalanceProcessor {
+func NewBalanceProcessor(brokers []string, options ...goka.ProcessorOption) (*BalanceProcessor, error) {
+	logger.Info("Create new balance processor..")
 	balanceGroup := goka.DefineGroup(config.BalanceGroup,
 		goka.Input(config.TopicDeposit, new(util.DepositCodec), processBalance),
 		goka.Persist(new(util.BalanceCodec)),
 	)
-	bp := BalanceProcessor{
-		Group: balanceGroup,
-	}
-	return bp
-}
-
-func RunBalanceProcessor(ctx context.Context, brokers []string) error {
-	logger.Info("Running balance processor..")
-
-	balanceProcessor := NewBalanceProcessor()
 	processor, err := goka.NewProcessor(brokers,
-		balanceProcessor.Group,
-		goka.WithTopicManagerBuilder(goka.TopicManagerBuilderWithTopicManagerConfig(config.TMC)),
-		goka.WithConsumerGroupBuilder(goka.DefaultConsumerGroupBuilder),
+		balanceGroup,
+		options...,
 	)
 	if err != nil {
 		logger.Error("error creating processor: %v", err)
-		panic(err)
+		return nil, err
 	}
-	err = processor.Run(ctx)
-	if err != nil {
-		logger.Error("Error running balanceProcessor: %v", err)
-	}
-	return err
+	return &BalanceProcessor{
+		Processor: processor,
+	}, nil
+}
+
+func (bp *BalanceProcessor) Run(ctx context.Context) error {
+	logger.Info("Running balance processor..")
+	return bp.Processor.Run(ctx)
 }
 
 func processBalance(ctx goka.Context, msg interface{}) {

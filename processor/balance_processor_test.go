@@ -16,7 +16,7 @@ import (
 
 type BalanceProcessorSuite struct {
 	suite.Suite
-	balanceProcessor processor.BalanceProcessor
+	balanceProcessor *processor.BalanceProcessor
 	gkt              *tester.Tester
 	proc             *goka.Processor
 }
@@ -26,16 +26,14 @@ func TestBalanceProcessorSuite(t *testing.T) {
 }
 
 func (bp *BalanceProcessorSuite) SetupSuite() {
-	bp.balanceProcessor = processor.NewBalanceProcessor()
 	bp.gkt = tester.New(bp.T())
 
-	proc, err := goka.NewProcessor([]string{}, bp.balanceProcessor.Group,
-		goka.WithTester(bp.gkt),
-	)
+	var err error
+	bp.balanceProcessor, err = processor.NewBalanceProcessor([]string{}, goka.WithTester(bp.gkt))
 
 	require.Nil(bp.T(), err)
 
-	go proc.Run(context.Background())
+	go bp.balanceProcessor.Run(context.Background())
 }
 
 func (bp *BalanceProcessorSuite) BeforeTest(_, _ string) {
