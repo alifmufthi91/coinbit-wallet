@@ -2,6 +2,7 @@ package server
 
 import (
 	"coinbit-wallet/controller"
+	"coinbit-wallet/emitter"
 	"coinbit-wallet/middleware"
 	"coinbit-wallet/service"
 	"coinbit-wallet/view"
@@ -10,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func NewRouter(bv *view.BalanceView, atv *view.AboveThresholdView) *gin.Engine {
+func NewRouter(bv *view.BalanceView, atv *view.AboveThresholdView, de *emitter.DepositEmitter) *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
@@ -19,7 +20,7 @@ func NewRouter(bv *view.BalanceView, atv *view.AboveThresholdView) *gin.Engine {
 	router.Use(cors.Default())
 	router.Use(middleware.ErrorHandlingMiddleware())
 
-	walletService := service.NewWalletService(bv, atv)
+	walletService := service.NewWalletService(bv, atv, de)
 
 	v1 := router.Group("api/v1")
 	{

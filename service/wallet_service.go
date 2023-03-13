@@ -17,14 +17,16 @@ type IWalletService interface {
 }
 
 type WalletService struct {
-	balanceView        *view.BalanceView
-	aboveThresholdView *view.AboveThresholdView
+	balanceView        view.IBalanceView
+	aboveThresholdView view.IAboveThresholdView
+	depositEmitter     emitter.IDepositEmitter
 }
 
-func NewWalletService(bv *view.BalanceView, atv *view.AboveThresholdView) WalletService {
+func NewWalletService(bv *view.BalanceView, atv *view.AboveThresholdView, e *emitter.DepositEmitter) WalletService {
 	return WalletService{
 		balanceView:        bv,
 		aboveThresholdView: atv,
+		depositEmitter:     e,
 	}
 }
 
@@ -36,7 +38,7 @@ func (ws WalletService) DepositWallet(request request.WalletDepositRequest) erro
 		DepositedAt: timestamppb.Now(),
 	}
 
-	if err := emitter.EmitDeposit(deposit); err != nil {
+	if err := ws.depositEmitter.EmitSync(deposit); err != nil {
 		return err
 	}
 

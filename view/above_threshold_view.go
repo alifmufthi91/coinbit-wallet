@@ -11,6 +11,11 @@ import (
 	"github.com/lovoo/goka"
 )
 
+type IAboveThresholdView interface {
+	Run(ctx context.Context) error
+	GetByKey(key string) (*model.AboveThreshold, error)
+}
+
 type AboveThresholdView struct {
 	view *goka.View
 }

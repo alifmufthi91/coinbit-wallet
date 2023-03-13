@@ -18,6 +18,12 @@ import (
 	"time"
 )
 
+var (
+	balanceView        *view.BalanceView
+	aboveThresholdView *view.AboveThresholdView
+	depositEmitter     *emitter.DepositEmitter
+)
+
 func main() {
 	Init()
 
@@ -36,10 +42,15 @@ func main() {
 	wg.Add(2)
 	defer wg.Wait()
 
-	var err error
-	var balanceView *view.BalanceView
-	var aboveThresholdView *view.AboveThresholdView
+	go RunGokaProcessors(ctx, &wg)
+	go RunGokaViewers(balanceView, aboveThresholdView)
+	RunServer(balanceView, aboveThresholdView, depositEmitter, &wg)
+}
 
+func Init() {
+	config.InitGoka()
+
+	var err error
 	if balanceView, err = view.NewBalanceView(config.Brokers); err != nil {
 		panic(err)
 	}
@@ -48,19 +59,14 @@ func main() {
 		panic(err)
 	}
 
-	go RunGokaProcessors(ctx, &wg)
-	go RunGokaViewers(balanceView, aboveThresholdView)
-	RunServer(balanceView, aboveThresholdView, &wg)
+	if depositEmitter, err = emitter.NewDepositEmitter(config.Brokers); err != nil {
+		panic(err)
+	}
 }
 
-func Init() {
-	config.InitGoka()
-	emitter.InitDepositEmitter(config.Brokers, config.TopicDeposit)
-}
-
-func RunServer(balanceView *view.BalanceView, aboveThresholdView *view.AboveThresholdView, wg *sync.WaitGroup) {
+func RunServer(bv *view.BalanceView, atv *view.AboveThresholdView, de *emitter.DepositEmitter, wg *sync.WaitGroup) {
 	env := config.GetEnv()
-	router := server.NewRouter(balanceView, aboveThresholdView)
+	router := server.NewRouter(bv, atv, de)
 	srv := http.Server{
 		Addr:    fmt.Sprintf("0.0.0.0:%s", env.Port),
 		Handler: router,
@@ -101,10 +107,10 @@ func RunGokaProcessors(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 }
 
-func RunGokaViewers(balanceView *view.BalanceView, aboveThresholdView *view.AboveThresholdView) {
+func RunGokaViewers(bv *view.BalanceView, atv *view.AboveThresholdView) {
 	go func() {
 		for {
-			err := balanceView.Run(context.Background())
+			err := bv.Run(context.Background())
 			if err != nil {
 				logger.Error("Error running balance view : %s", err.Error())
 			}
@@ -112,7 +118,7 @@ func RunGokaViewers(balanceView *view.BalanceView, aboveThresholdView *view.Abov
 	}()
 	go func() {
 		for {
-			err := aboveThresholdView.Run(context.Background())
+			err := atv.Run(context.Background())
 			if err != nil {
 				logger.Error("Error running above threshold view : %s", err.Error())
 			}

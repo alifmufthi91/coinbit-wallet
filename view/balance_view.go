@@ -11,6 +11,11 @@ import (
 	"github.com/lovoo/goka"
 )
 
+type IBalanceView interface {
+	Run(ctx context.Context) error
+	GetByKey(key string) (*model.Balance, error)
+}
+
 type BalanceView struct {
 	view *goka.View
 }

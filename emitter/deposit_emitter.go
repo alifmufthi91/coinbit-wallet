@@ -1,6 +1,7 @@
 package emitter
 
 import (
+	"coinbit-wallet/config"
 	"coinbit-wallet/generated/model"
 	"coinbit-wallet/util"
 	"coinbit-wallet/util/logger"
@@ -8,23 +9,27 @@ import (
 	"github.com/lovoo/goka"
 )
 
-var (
-	depositEmitter *goka.Emitter
-)
-
-func InitDepositEmitter(brokers []string, stream goka.Stream) {
-	logger.Info("Init deposit emitter..")
-	var err error
-	depositEmitter, err = goka.NewEmitter(brokers, stream, new(util.DepositCodec))
-	if err != nil {
-		logger.Error("error creating emitter: %v", err)
-		panic(err)
-	}
+type IDepositEmitter interface {
+	EmitSync(deposit *model.Deposit) error
 }
 
-func EmitDeposit(deposit *model.Deposit) error {
+type DepositEmitter struct {
+	emitter *goka.Emitter
+}
+
+func NewDepositEmitter(brokers []string) (*DepositEmitter, error) {
+	logger.Info("Creating new deposit emitter..")
+	depositEmitter, err := goka.NewEmitter(brokers, config.TopicDeposit, new(util.DepositCodec))
+	if err != nil {
+		logger.Error("error creating emitter: %v", err)
+		return nil, err
+	}
+	return &DepositEmitter{emitter: depositEmitter}, nil
+}
+
+func (e *DepositEmitter) EmitSync(deposit *model.Deposit) error {
 	logger.Info("emitting deposit request")
-	err := depositEmitter.EmitSync(deposit.WalletId, deposit)
+	err := e.emitter.EmitSync(deposit.WalletId, deposit)
 	if err != nil {
 		logger.Error("error emitting message: %v", err)
 		return err
