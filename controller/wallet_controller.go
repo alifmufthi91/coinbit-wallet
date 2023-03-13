@@ -14,18 +14,18 @@ type IWalletController interface {
 	GetDetails(c *gin.Context)
 }
 
-type walletController struct {
+type WalletController struct {
 	walletService service.IWalletService
 }
 
-func NewWalletController(ws service.IWalletService) IWalletController {
+func NewWalletController(ws service.IWalletService) WalletController {
 	logger.Info("Initializing wallet controller..")
-	return walletController{
+	return WalletController{
 		walletService: ws,
 	}
 }
 
-func (wc walletController) Deposit(c *gin.Context) {
+func (wc WalletController) Deposit(c *gin.Context) {
 	logger.Info("deposit to wallet request")
 
 	var body request.WalletDepositRequest
@@ -42,10 +42,9 @@ func (wc walletController) Deposit(c *gin.Context) {
 	logger.Info("deposit to wallet success")
 }
 
-func (wc walletController) GetDetails(c *gin.Context) {
+func (wc WalletController) GetDetails(c *gin.Context) {
 	logger.Info("Get details wallet request")
 	walletId := c.Param("walletId")
-
 	response, err := wc.walletService.GetWalletDetails(walletId)
 	if err != nil {
 		panic(err)

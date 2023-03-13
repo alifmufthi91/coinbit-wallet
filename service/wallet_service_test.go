@@ -1,15 +1,16 @@
 package service_test
 
 import (
-	"coinbit-wallet/dto/app"
 	"coinbit-wallet/dto/request"
 	"coinbit-wallet/dto/response"
 	"coinbit-wallet/emitter"
 	"coinbit-wallet/generated/model"
 	"coinbit-wallet/service"
+	"coinbit-wallet/util/time_util"
 	"coinbit-wallet/view"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/go-test/deep"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,7 @@ type WalletServiceSuite struct {
 	balanceView        *view.MockBalanceView
 	aboveThresholdView *view.MockAboveThresholdView
 	depositEmitter     *emitter.MockDepositEmitter
-	timestamp          *timestamppb.Timestamp
+	timestamp          time.Time
 }
 
 func TestWalletServiceSuite(t *testing.T) {
@@ -34,8 +35,8 @@ func (s *WalletServiceSuite) SetupSuite() {
 	s.balanceView = new(view.MockBalanceView)
 	s.aboveThresholdView = new(view.MockAboveThresholdView)
 	s.depositEmitter = new(emitter.MockDepositEmitter)
-	s.timestamp = timestamppb.Now()
-	timestampGen := app.MockTimestampGenerator{
+	s.timestamp = time.Now()
+	timestampGen := time_util.MockTimestampGenerator{
 		Timestamp: s.timestamp,
 	}
 	s.walletService = service.NewWalletService(s.balanceView, s.aboveThresholdView, s.depositEmitter, timestampGen)
@@ -57,7 +58,7 @@ func (s *WalletServiceSuite) TestWalletService_DepositWallet() {
 	deposit := model.Deposit{
 		WalletId:    walletDepositRequest.WalletId,
 		Amount:      walletDepositRequest.Amount,
-		DepositedAt: s.timestamp,
+		DepositedAt: timestamppb.New(s.timestamp),
 	}
 
 	s.depositEmitter.On("EmitSync", &deposit).Return(nil).Once()
@@ -83,7 +84,7 @@ func (s *WalletServiceSuite) TestWalletService_GetWalletDetails() {
 		WalletId:            walletId,
 		AmountWithinTwoMins: 2000,
 		Status:              false,
-		StartPeriod:         timestamppb.Now(),
+		StartPeriod:         timestamppb.New(s.timestamp),
 	}
 
 	expectedWalletDetails := response.GetWalletDetailsResponse{

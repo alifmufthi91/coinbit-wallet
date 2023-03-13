@@ -2,10 +2,10 @@ package server
 
 import (
 	"coinbit-wallet/controller"
-	"coinbit-wallet/dto/app"
 	"coinbit-wallet/emitter"
 	"coinbit-wallet/middleware"
 	"coinbit-wallet/service"
+	"coinbit-wallet/util/time_util"
 	"coinbit-wallet/view"
 
 	"github.com/gin-contrib/cors"
@@ -21,7 +21,7 @@ func NewRouter(bv view.IBalanceView, atv view.IAboveThresholdView, de emitter.ID
 	router.Use(cors.Default())
 	router.Use(middleware.ErrorHandlingMiddleware())
 
-	timestampGen := app.NewTimeStampGenerator()
+	timestampGen := time_util.NewTimeStampGenerator()
 	walletService := service.NewWalletService(bv, atv, de, timestampGen)
 
 	v1 := router.Group("api/v1")
