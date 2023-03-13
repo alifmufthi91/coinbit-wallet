@@ -48,6 +48,7 @@ func main() {
 }
 
 func Init() {
+	config.InitEnv()
 	config.InitGoka()
 
 	var err error
@@ -68,7 +69,7 @@ func RunServer(bv *view.BalanceView, atv *view.AboveThresholdView, de *emitter.D
 	env := config.GetEnv()
 	router := server.NewRouter(bv, atv, de)
 	srv := http.Server{
-		Addr:    fmt.Sprintf("0.0.0.0:%s", env.Port),
+		Addr:    fmt.Sprintf("%s:%s", env.Host, env.Port),
 		Handler: router,
 	}
 

@@ -15,6 +15,7 @@ var (
 )
 
 type Environment struct {
+	Host         string
 	Port         string
 	KafkaBrokers []string
 }
@@ -25,6 +26,7 @@ func InitEnv() {
 		panic("Error loading .env file")
 	}
 	env = Environment{
+		Host:         os.Getenv("HOST"),
 		Port:         os.Getenv("PORT"),
 		KafkaBrokers: strings.Split(os.Getenv("KAFKA_BROKERS"), ","),
 	}
@@ -33,8 +35,5 @@ func InitEnv() {
 }
 
 func GetEnv() *Environment {
-	once.Do(func() {
-		InitEnv()
-	})
 	return &env
 }
