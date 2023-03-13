@@ -6,6 +6,7 @@ require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.8.2
+	github.com/go-test/deep v1.1.0
 	github.com/joho/godotenv v1.5.1
 	github.com/lovoo/goka v1.1.7
 	github.com/rs/zerolog v1.29.0
