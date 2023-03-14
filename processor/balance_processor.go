@@ -44,7 +44,10 @@ func processBalance(ctx goka.Context, msg interface{}) {
 	var balance *model.Balance
 	var ok bool
 
-	deposit := msg.(*model.Deposit)
+	deposit, ok := msg.(*model.Deposit)
+	if !ok {
+		ctx.Fail(fmt.Errorf("processing failed due to casting failure"))
+	}
 
 	if val := ctx.Value(); val != nil {
 		balance, ok = val.(*model.Balance)

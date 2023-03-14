@@ -45,7 +45,10 @@ func processAboveThreshold(ctx goka.Context, msg interface{}) {
 	var aboveThreshold *model.AboveThreshold
 	var ok bool
 
-	deposit := msg.(*model.Deposit)
+	deposit, ok := msg.(*model.Deposit)
+	if !ok {
+		ctx.Fail(fmt.Errorf("processing failed due to casting failure"))
+	}
 
 	if val := ctx.Value(); val != nil {
 		aboveThreshold, ok = val.(*model.AboveThreshold)
