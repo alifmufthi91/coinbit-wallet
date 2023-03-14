@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-test/deep"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -48,72 +47,126 @@ func (s *WalletServiceSuite) AfterTest(_, _ string) {
 
 func (s *WalletServiceSuite) TestWalletService_DepositWallet() {
 
-	walletDepositRequest := request.WalletDepositRequest{
-		WalletId: "111-222",
-		Amount:   2000,
+	testCases := []struct {
+		name            string
+		depositRequest  request.WalletDepositRequest
+		expectedDeposit *model.Deposit
+		expectedError   error
+	}{
+		{
+			name: "Success deposit request",
+			depositRequest: request.WalletDepositRequest{
+				WalletId: "111-222",
+				Amount:   2000,
+			},
+			expectedDeposit: &model.Deposit{
+				WalletId:    "111-222",
+				Amount:      2000,
+				DepositedAt: timestamppb.New(s.timestamp),
+			},
+			expectedError: nil,
+		},
+		{
+			name: "Failed deposit request during emitSync",
+			depositRequest: request.WalletDepositRequest{
+				WalletId: "111-222",
+				Amount:   2000,
+			},
+			expectedDeposit: nil,
+			expectedError:   errors.New("something unexpected happen on EmitSync"),
+		},
 	}
 
-	deposit := model.Deposit{
-		WalletId:    walletDepositRequest.WalletId,
-		Amount:      walletDepositRequest.Amount,
-		DepositedAt: timestamppb.New(s.timestamp),
+	for _, tc := range testCases {
+		deposit := model.Deposit{
+			WalletId:    tc.depositRequest.WalletId,
+			Amount:      tc.depositRequest.Amount,
+			DepositedAt: timestamppb.New(s.timestamp),
+		}
+
+		s.depositEmitter.On("EmitSync", &deposit).Return(tc.expectedError).Once()
+		err := s.walletService.DepositWallet(tc.depositRequest)
+
+		if tc.expectedError != nil {
+			require.Error(s.T(), err, tc.name)
+		} else {
+			require.NoError(s.T(), err, tc.name)
+		}
 	}
-
-	s.depositEmitter.On("EmitSync", &deposit).Return(nil).Once()
-	err := s.walletService.DepositWallet(walletDepositRequest)
-	require.NoError(s.T(), err)
-
-	expectedError := errors.New("something unexpected happen on EmitSync")
-	s.depositEmitter.On("EmitSync", &deposit).Return(expectedError).Once()
-	err = s.walletService.DepositWallet(walletDepositRequest)
-	require.Error(s.T(), err)
 }
 
 func (s *WalletServiceSuite) TestWalletService_GetWalletDetails() {
 
-	walletId := "111-222"
-
-	balance := model.Balance{
-		WalletId: walletId,
-		Balance:  2000,
+	testCases := []struct {
+		name                  string
+		walletId              string
+		balance               *model.Balance
+		aboveThreshold        *model.AboveThreshold
+		balanceError          error
+		aboveThresholdError   error
+		expectedWalletDetails *response.GetWalletDetailsResponse
+	}{
+		{
+			name:     "Success to get wallet details",
+			walletId: "111-222",
+			balance: &model.Balance{
+				WalletId: "111-222",
+				Balance:  2000,
+			},
+			aboveThreshold: &model.AboveThreshold{
+				WalletId:            "111-222",
+				AmountWithinTwoMins: 2000,
+				Status:              false,
+				StartPeriod:         timestamppb.New(s.timestamp),
+			},
+			balanceError:        nil,
+			aboveThresholdError: nil,
+			expectedWalletDetails: &response.GetWalletDetailsResponse{
+				WalletId:       "111-222",
+				Balance:        2000,
+				AboveThreshold: false,
+			},
+		},
+		{
+			name:                  "Failed to get balance from view",
+			walletId:              "111-222",
+			balance:               nil,
+			aboveThreshold:        nil,
+			balanceError:          errors.New("unable to get balance from view"),
+			aboveThresholdError:   nil,
+			expectedWalletDetails: nil,
+		},
+		{
+			name:                  "Failed to get above threshold from view",
+			walletId:              "111-222",
+			balance:               nil,
+			aboveThreshold:        nil,
+			balanceError:          nil,
+			aboveThresholdError:   errors.New("unable to get aboveThreshold from view"),
+			expectedWalletDetails: nil,
+		},
 	}
 
-	aboveThreshold := model.AboveThreshold{
-		WalletId:            walletId,
-		AmountWithinTwoMins: 2000,
-		Status:              false,
-		StartPeriod:         timestamppb.New(s.timestamp),
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			s.balanceView.On("GetByKey", tc.walletId).Return(tc.balance, tc.balanceError).Once()
+
+			if tc.balanceError == nil {
+				s.aboveThresholdView.On("GetByKey", tc.walletId).Return(tc.aboveThreshold, tc.aboveThresholdError).Once()
+			}
+
+			walletDetails, err := s.walletService.GetWalletDetails(tc.walletId)
+
+			if tc.expectedWalletDetails == nil {
+				require.Error(s.T(), err)
+				require.Nil(s.T(), walletDetails)
+			} else {
+				require.NoError(s.T(), err)
+				require.NotNil(s.T(), walletDetails)
+				require.EqualValues(s.T(), tc.expectedWalletDetails.WalletId, walletDetails.WalletId)
+				require.EqualValues(s.T(), tc.expectedWalletDetails.Balance, walletDetails.Balance)
+				require.EqualValues(s.T(), tc.expectedWalletDetails.AboveThreshold, walletDetails.AboveThreshold)
+			}
+		})
 	}
-
-	expectedWalletDetails := response.GetWalletDetailsResponse{
-		WalletId:       walletId,
-		Balance:        balance.Balance,
-		AboveThreshold: aboveThreshold.Status,
-	}
-
-	s.balanceView.On("GetByKey", walletId).Return(&balance, nil).Once()
-	s.aboveThresholdView.On("GetByKey", walletId).Return(&aboveThreshold, nil).Once()
-	walletDetails, err := s.walletService.GetWalletDetails(walletId)
-
-	require.NoError(s.T(), err)
-	require.Nil(s.T(), deep.Equal(expectedWalletDetails, *walletDetails))
-
-	expectedError := errors.New("unable to get balance from view")
-	var emptyBalance *model.Balance
-	s.balanceView.On("GetByKey", walletId).Return(emptyBalance, expectedError).Once()
-	walletDetails, err = s.walletService.GetWalletDetails(walletId)
-
-	require.Error(s.T(), err)
-	require.Equal(s.T(), expectedError.Error(), err.Error())
-	require.Nil(s.T(), walletDetails)
-
-	expectedError2 := errors.New("unable to get aboveThreshold from view")
-	var emptyAboveThreshold *model.AboveThreshold
-	s.balanceView.On("GetByKey", walletId).Return(&balance, nil).Once()
-	s.aboveThresholdView.On("GetByKey", walletId).Return(emptyAboveThreshold, expectedError2).Once()
-	walletDetails, err = s.walletService.GetWalletDetails(walletId)
-
-	require.Error(s.T(), err)
-	require.Equal(s.T(), expectedError2.Error(), err.Error())
-	require.Nil(s.T(), walletDetails)
 }

@@ -9,7 +9,6 @@ import (
 	"coinbit-wallet/mocks"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,79 +45,134 @@ func (s *WalletControllerSuite) AfterTest(_, _ string) {
 
 func (c *WalletControllerSuite) TestWalletController_Deposit() {
 
-	// create new context
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-
-	depositRequest := request.WalletDepositRequest{
-		WalletId: "111-222",
-		Amount:   2000,
+	testCases := []struct {
+		name           string
+		depositRequest request.WalletDepositRequest
+		mockReturn     error
+		expectedCode   int
+		expectedBody   map[string]interface{}
+	}{
+		{
+			name: "Successful deposit",
+			depositRequest: request.WalletDepositRequest{
+				WalletId: "111-222",
+				Amount:   2000,
+			},
+			mockReturn:   nil,
+			expectedCode: http.StatusOK,
+			expectedBody: map[string]interface{}{
+				"data": nil,
+			},
+		},
+		{
+			name: "Failed deposit",
+			depositRequest: request.WalletDepositRequest{
+				WalletId: "111-222",
+				Amount:   2000,
+			},
+			mockReturn:   errors.New("failed processing deposit to wallet"),
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: map[string]interface{}{
+				"error":   "INTERNAL SERVER ERROR",
+				"message": "failed processing deposit to wallet",
+			},
+		},
 	}
-	c.walletService.On("DepositWallet", depositRequest).Return(nil).Once()
 
-	// assign payload to context request body
-	req, _ := http.NewRequest(http.MethodPost, "/deposit", nil)
-	bodyBytes, _ := json.Marshal(depositRequest)
-	req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	req.Header.Set("Content-Type", "application/json")
-	ctx.Request = req
+	for _, tc := range testCases {
+		c.Run(tc.name, func() {
+			w := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(w)
 
-	// call the endpoint
-	c.router.ServeHTTP(w, req)
+			c.walletService.On("DepositWallet", tc.depositRequest).Return(tc.mockReturn).Once()
 
-	// check response status code
-	require.Equal(c.T(), http.StatusOK, w.Code)
+			bodyBytes, _ := json.Marshal(tc.depositRequest)
+			req, _ := http.NewRequest(http.MethodPost, "/deposit", bytes.NewReader(bodyBytes))
+			req.Header.Set("Content-Type", "application/json")
+			ctx.Request = req
 
-	var responseBody map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &responseBody)
+			c.router.ServeHTTP(w, req)
 
-	require.Empty(c.T(), responseBody["data"])
+			require.Equal(c.T(), tc.expectedCode, w.Code)
 
-	w2 := httptest.NewRecorder()
-	ctx2, _ := gin.CreateTestContext(w)
-	expectedError := errors.New("failed processing deposit to wallet")
-	c.walletService.On("DepositWallet", depositRequest).Return(expectedError).Once()
+			var responseBody map[string]interface{}
+			json.Unmarshal(w.Body.Bytes(), &responseBody)
 
-	req2, _ := http.NewRequest(http.MethodPost, "/deposit", nil)
-	req2.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-	req2.Header.Set("Content-Type", "application/json")
-	ctx2.Request = req2
-
-	c.router.ServeHTTP(w2, req2)
-	require.Equal(c.T(), http.StatusInternalServerError, w2.Code)
+			if tc.mockReturn != nil {
+				require.Equal(c.T(), tc.expectedBody["message"], responseBody["message"])
+			} else {
+				require.Equal(c.T(), tc.expectedBody["data"], responseBody["data"])
+			}
+		})
+	}
 }
 
 func (c *WalletControllerSuite) TestWalletController_GetDetails() {
 
-	// create new context
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-
-	walletId := "111-222"
-	walletDetails := response.GetWalletDetailsResponse{
-		WalletId:       walletId,
-		Balance:        2000,
-		AboveThreshold: false,
+	testCases := []struct {
+		name            string
+		walletId        string
+		walletDetails   *response.GetWalletDetailsResponse
+		returnError     error
+		expectedCode    int
+		expectedData    map[string]interface{}
+		expectedMessage string
+	}{
+		{
+			name:     "Get Wallet Details Success",
+			walletId: "111-222",
+			walletDetails: &response.GetWalletDetailsResponse{
+				WalletId:       "111-222",
+				Balance:        2000,
+				AboveThreshold: false,
+			},
+			returnError:  nil,
+			expectedCode: 200,
+			expectedData: map[string]interface{}{
+				"wallet_id":       "111-222",
+				"balance":         float64(2000),
+				"above_threshold": false,
+			},
+			expectedMessage: "SUCCESS",
+		},
+		{
+			name:            "Get Wallet Details Failed",
+			walletId:        "111-222",
+			walletDetails:   nil,
+			returnError:     errors.New("failed to get wallet details"),
+			expectedCode:    500,
+			expectedData:    nil,
+			expectedMessage: "failed to get wallet details",
+		},
 	}
-	c.walletService.On("GetWalletDetails", walletId).Return(&walletDetails, nil).Once()
 
-	req, _ := http.NewRequest(http.MethodGet, "/details/"+walletId, nil)
-	req.Header.Set("Content-Type", "application/json")
-	ctx.Request = req
+	for _, tc := range testCases {
+		c.Run(tc.name, func() {
+			w := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(w)
+			c.walletService.On("GetWalletDetails", tc.walletId).Return(tc.walletDetails, tc.returnError).Once()
 
-	// call the endpoint
-	c.router.ServeHTTP(w, req)
+			req, _ := http.NewRequest(http.MethodGet, "/details/"+tc.walletId, nil)
+			req.Header.Set("Content-Type", "application/json")
+			ctx.Request = req
 
-	// check response status code
-	require.Equal(c.T(), http.StatusOK, w.Code)
+			// call the endpoint
+			c.router.ServeHTTP(w, req)
 
-	var responseBody map[string]interface{}
-	json.Unmarshal(w.Body.Bytes(), &responseBody)
+			// check response status code
+			require.Equal(c.T(), tc.expectedCode, w.Code)
 
-	data := responseBody["data"].(map[string]interface{})
-	require.NotEmpty(c.T(), data)
+			var responseBody map[string]interface{}
+			json.Unmarshal(w.Body.Bytes(), &responseBody)
 
-	require.Equal(c.T(), walletDetails.WalletId, data["wallet_id"])
-	require.Equal(c.T(), walletDetails.Balance, float32(data["balance"].(float64)))
-	require.Equal(c.T(), walletDetails.AboveThreshold, data["above_threshold"])
+			require.Equal(c.T(), tc.expectedMessage, responseBody["message"].(string))
+
+			if tc.returnError == nil {
+				data := responseBody["data"].(map[string]interface{})
+				require.Equal(c.T(), tc.expectedData["wallet_id"], data["wallet_id"])
+				require.Equal(c.T(), tc.expectedData["balance"], data["balance"])
+				require.Equal(c.T(), tc.expectedData["above_threshold"], data["above_threshold"])
+			}
+		})
+	}
 }

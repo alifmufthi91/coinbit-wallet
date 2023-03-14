@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-test/deep"
 	"github.com/lovoo/goka"
 	"github.com/lovoo/goka/tester"
 	"github.com/stretchr/testify/require"
@@ -42,65 +43,77 @@ func (at *AboveThresholdProcessorSuite) BeforeTest(_, _ string) {
 
 func (at *AboveThresholdProcessorSuite) TestAboveThresholdProcessor_Process() {
 
-	var (
-		expectedStatus bool
-		expectedAmount float32
-	)
-
-	aboveThreshold := model.AboveThreshold{
-		WalletId:            "111-222",
-		AmountWithinTwoMins: float32(0),
-		Status:              false,
-		StartPeriod:         timestamppb.Now(),
+	testCases := []struct {
+		name     string
+		deposit  *model.Deposit
+		expected *model.AboveThreshold
+	}{
+		{
+			name: "First deposit within threshold",
+			deposit: &model.Deposit{
+				WalletId:    "111-222",
+				Amount:      7000,
+				DepositedAt: timestamppb.Now(),
+			},
+			expected: &model.AboveThreshold{
+				WalletId:            "111-222",
+				AmountWithinTwoMins: 7000,
+				Status:              false,
+				StartPeriod:         timestamppb.Now(),
+			},
+		},
+		{
+			name: "Deposit within two mins above threshold",
+			deposit: &model.Deposit{
+				WalletId:    "111-222",
+				Amount:      7000,
+				DepositedAt: timestamppb.New(time.Now().Add(5 * time.Second)),
+			},
+			expected: &model.AboveThreshold{
+				WalletId:            "111-222",
+				AmountWithinTwoMins: 14000,
+				Status:              true,
+				StartPeriod:         timestamppb.Now(),
+			},
+		},
+		{
+			name: "Deposit after two mins above threshold",
+			deposit: &model.Deposit{
+				WalletId:    "111-222",
+				Amount:      7000,
+				DepositedAt: timestamppb.New(time.Now().Add(2 * time.Minute)),
+			},
+			expected: &model.AboveThreshold{
+				WalletId:            "111-222",
+				AmountWithinTwoMins: 7000,
+				Status:              false,
+				StartPeriod:         timestamppb.New(time.Now().Add(2 * time.Minute)),
+			},
+		},
 	}
 
-	deposit := model.Deposit{
-		WalletId:    aboveThreshold.WalletId,
-		Amount:      7000,
-		DepositedAt: timestamppb.Now(),
+	for i, tc := range testCases {
+		at.Run(tc.name, func() {
+			// first deposit
+			if i == 0 {
+				aboveThreshold := tc.expected
+
+				at.gkt.Consume(string(config.TopicDeposit), tc.deposit.WalletId, tc.deposit)
+				at.gkt.SetTableValue(config.AboveThresholdTable, aboveThreshold.WalletId, aboveThreshold)
+
+				value := at.gkt.TableValue(config.AboveThresholdTable, tc.deposit.WalletId)
+				received := value.(*model.AboveThreshold)
+
+				require.Nil(at.T(), deep.Equal(tc.expected, received))
+			} else {
+				at.gkt.Consume(string(config.TopicDeposit), tc.deposit.WalletId, tc.deposit)
+
+				value := at.gkt.TableValue(config.AboveThresholdTable, tc.deposit.WalletId)
+				received := value.(*model.AboveThreshold)
+
+				require.Nil(at.T(), deep.Equal(tc.expected, received))
+			}
+		})
 	}
-
-	at.gkt.SetTableValue(config.AboveThresholdTable, aboveThreshold.WalletId, &aboveThreshold)
-
-	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
-
-	value := at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
-	received := value.(*model.AboveThreshold)
-
-	// check wallet id
-	require.Equal(at.T(), aboveThreshold.WalletId, received.WalletId)
-
-	// check first deposit amount and status
-	aboveThreshold.AmountWithinTwoMins += 7000
-	expectedStatus = false
-	expectedAmount = aboveThreshold.AmountWithinTwoMins
-	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
-	require.Equal(at.T(), expectedStatus, received.Status)
-
-	// deposit another to make amount within two mins above 10.000
-	deposit.DepositedAt = timestamppb.New(time.Now().Add(5 * time.Second))
-	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
-
-	value = at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
-	received = value.(*model.AboveThreshold)
-
-	expectedAmount += 7000
-	expectedStatus = true
-
-	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
-	require.Equal(at.T(), expectedStatus, received.Status)
-
-	// deposit another to after two mins
-	deposit.DepositedAt = timestamppb.New(time.Now().Add(2 * time.Minute))
-	at.gkt.Consume(string(config.TopicDeposit), deposit.WalletId, &deposit)
-
-	value = at.gkt.TableValue(config.AboveThresholdTable, aboveThreshold.WalletId)
-	received = value.(*model.AboveThreshold)
-
-	expectedAmount = 7000
-	expectedStatus = false
-
-	require.Equal(at.T(), expectedAmount, received.AmountWithinTwoMins)
-	require.Equal(at.T(), expectedStatus, received.Status)
 
 }
