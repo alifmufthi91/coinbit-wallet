@@ -53,9 +53,11 @@ func main() {
 
 func Init() {
 	config.InitEnv()
-	config.InitGoka()
+	err := config.InitGoka()
+	if err != nil {
+		panic(err)
+	}
 
-	var err error
 	if balanceView, err = view.NewBalanceView(config.Brokers); err != nil {
 		panic(err)
 	}

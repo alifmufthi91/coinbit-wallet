@@ -19,28 +19,12 @@ var (
 	AboveThresholdTable goka.Table = goka.GroupTable(AboveThresholdGroup)
 )
 
-func InitGoka() {
+func InitGoka() error {
 	logger.Info("Init Goka configuration")
 
 	Brokers = GetEnv().KafkaBrokers
 	logger.Info("kafka brokers : %v", Brokers)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	grp, ctx := errgroup.WithContext(ctx)
-
-	defer cancel()
-
-	grp.Go(EnsureStreamExists(string(TopicDeposit), Brokers))
-	grp.Go(EnsureTableExists(string(BalanceTable), Brokers))
-	grp.Go(EnsureTableExists(string(AboveThresholdTable), Brokers))
-
-	if err := grp.Wait(); err != nil {
-		panic(err)
-	}
-
-}
-
-func createTopicManager(brokers []string) goka.TopicManager {
 	TMC = goka.NewTopicManagerConfig()
 	TMC.Table.Replication = 1
 	TMC.Stream.Replication = 1
@@ -51,20 +35,38 @@ func createTopicManager(brokers []string) goka.TopicManager {
 
 	goka.ReplaceGlobalConfig(config)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	grp, ctx := errgroup.WithContext(ctx)
+
+	defer cancel()
+	grp.Go(EnsureStreamExists(string(TopicDeposit), Brokers))
+	grp.Go(EnsureTableExists(string(BalanceTable), Brokers))
+	grp.Go(EnsureTableExists(string(AboveThresholdTable), Brokers))
+
+	if err := grp.Wait(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func createTopicManager(brokers []string) (goka.TopicManager, error) {
 	tm, err := goka.NewTopicManager(brokers, goka.DefaultConfig(), TMC)
 	if err != nil {
 		logger.Error("Error creating topic manager: %v", err)
-		panic(err)
+		return nil, err
 	}
-	return tm
+	return tm, nil
 }
 
 func EnsureStreamExists(topic string, brokers []string) func() error {
 	return func() error {
 		logger.Info("Ensuring topic %s exists", topic)
-		tm := createTopicManager(brokers)
+		tm, err := createTopicManager(brokers)
+		if err != nil {
+			return err
+		}
 		defer tm.Close()
-		err := tm.EnsureStreamExists(topic, 8)
+		err = tm.EnsureStreamExists(topic, 8)
 		if err != nil {
 			logger.Error("Error creating kafka topic %s: %v", topic, err)
 		}
@@ -75,9 +77,12 @@ func EnsureStreamExists(topic string, brokers []string) func() error {
 func EnsureTableExists(table string, brokers []string) func() error {
 	return func() error {
 		logger.Info("Ensuring table %s exists", table)
-		tm := createTopicManager(brokers)
+		tm, err := createTopicManager(brokers)
+		if err != nil {
+			return err
+		}
 		defer tm.Close()
-		err := tm.EnsureTableExists(table, 8)
+		err = tm.EnsureTableExists(table, 8)
 		if err != nil {
 			logger.Error("Error creating kafka table %s: %v", table, err)
 		}
